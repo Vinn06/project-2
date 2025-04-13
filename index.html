@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WaterTankSim – Volume Benda Putar</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f4f7fc;
+      color: #333;
+      line-height: 1.6;
+    }
+    header {
+      background: #0077cc;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 1.8rem;
+      border-radius: 8px 8px 0 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+    }
+    label, select, input {
+      margin: 10px auto;
+      font-size: 1.1rem;
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+    }
+    label {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    select, input[type="number"] {
+      width: 48%;
+      display: inline-block;
+    }
+    input[type="number"] {
+      margin-top: 10px;
+    }
+    input:focus, select:focus {
+      border-color: #0077cc;
+      background-color: #e6f3ff;
+    }
+    #webgl-output {
+      height: 400px;
+      width: 100%;
+      margin: 20px 0;
+      background: #f0f0f0;
+      border-radius: 8px;
+    }
+    canvas {
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 8px;
+    }
+    p {
+      font-size: 1.2rem;
+      margin-top: 10px;
+    }
+    .output-box {
+      font-weight: bold;
+      font-size: 1.3rem;
+      color: #0077cc;
+    }
+    .footer {
+      margin-top: 50px;
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+    .explanation-box {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #eef6ff;
+      border-left: 6px solid #0077cc;
+      border-radius: 8px;
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    WaterTankSim – Volume Benda Putar
+  </header>
+  <div class="container">
+    <label for="functionType">Pilih bentuk fungsi:</label>
+    <select id="functionType">
+      <option value="constant">f(x) = r (Tabung)</option>
+      <option value="linear">f(x) = kx (Kerucut)</option>
+      <option value="quadratic">f(x) = ax² (Parabola)</option>
+    </select>
+
+    <div style="display: flex; justify-content: space-between;">
+      <div style="flex: 1;">
+        <label for="valueInput">Nilai radius (r) / konstanta (a/k):</label>
+        <input type="number" id="valueInput" value="0.5" step="0.1">
+      </div>
+      <div style="flex: 1;">
+        <label for="heightInput">Tinggi benda (meter):</label>
+        <input type="number" id="heightInput" value="1" step="0.1">
+      </div>
+    </div>
+
+    <p><strong>Volume (m³):</strong> <span id="volumeOutput" class="output-box">-</span></p>
+    <p><strong>Rumus Volume:</strong> <span id="integralText"></span></p>
+
+    <div id="webgl-output"></div>
+    <canvas id="chartCanvas" width="600" height="300"></canvas>
+    <div id="explanation" class="explanation-box"></div>
+  </div>
+
+  <div class="footer">
+    <p>&copy; 2025 WaterTankSim. All rights reserved.</p>
+  </div>
+
+  <script>
+    let scene, camera, renderer, mesh, controls;
+
+    function init3D() {
+      const width = document.getElementById('webgl-output').offsetWidth;
+      const height = 400;
+
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+      camera.position.set(0, 0, 3);
+
+      renderer = new THREE.WebGLRenderer();
+      renderer.setSize(width, height);
+      document.getElementById("webgl-output").appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.1;
+
+      animate();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (mesh) mesh.rotation.y += 0.01;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function createGeometry(type, value, height) {
+      if (mesh) scene.remove(mesh);
+
+      let geometry;
+      const segments = 64;
+      const points = [];
+
+      for (let i = 0; i <= segments; i++) {
+        const x = (i / segments) * height;
+        let y = 0;
+        if (type === "constant") y = value;
+        if (type === "linear") y = value * x;
+        if (type === "quadratic") y = value * x * x;
+        points.push(new THREE.Vector2(y, x - height / 2));
+      }
+
+      geometry = new THREE.LatheGeometry(points, 100);
+      const material = new THREE.MeshBasicMaterial({ color: 0x0077cc, wireframe: true });
+      mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
+    }
+
+    function hitungVolume() {
+      const type = document.getElementById("functionType").value;
+      const v = parseFloat(document.getElementById("valueInput").value);
+      const h = parseFloat(document.getElementById("heightInput").value);
+
+      let volume = 0;
+      let integralHTML = "";
+
+      if (type === "constant") {
+        volume = Math.PI * v * v * h;
+        integralHTML = `V = π × r² × h = π × ${v}<sup>2</sup> × ${h} = <strong>${volume.toFixed(3)} m³</strong>`;
+      } else if (type === "linear") {
+        volume = Math.PI * v * v * Math.pow(h, 3) / 3;
+        integralHTML = `V = (π × k² × h³) ÷ 3 = (π × ${v}<sup>2</sup> × ${h}<sup>3</sup>) ÷ 3 = <strong>${volume.toFixed(3)} m³</strong>`;
+      } else if (type === "quadratic") {
+        volume = Math.PI * v * v * Math.pow(h, 5) / 5;
+        integralHTML = `V = (π × a² × h⁵) ÷ 5 = (π × ${v}<sup>2</sup> × ${h}<sup>5</sup>) ÷ 5 = <strong>${volume.toFixed(3)} m³</strong>`;
+      }
+
+      document.getElementById("volumeOutput").innerText = volume.toFixed(3);
+      document.getElementById("integralText").innerHTML = integralHTML;
+
+      createGeometry(type, v, h);
+      drawChart(type, v);
+      updateExplanation(type, v, h, volume);
+    }
+
+    function updateExplanation(type, param, height, volume) {
+      const explanation = document.getElementById("explanation");
+      let text = "";
+
+      if (type === "constant") {
+        text = `Anda memilih bentuk <strong>tabung</strong> dengan jari-jari <strong>${param} meter</strong> dan tinggi <strong>${height} meter</strong>. Volume dihitung menggunakan rumus <strong>V = π × r² × h</strong>. Hasil perhitungan menunjukkan bahwa volume benda putar ini adalah <strong>${volume.toFixed(3)} meter kubik</strong>, yang berarti benda dapat menampung air sebanyak itu jika diisi penuh.`;
+      } else if (type === "linear") {
+        text = `Anda memilih bentuk <strong>kerucut</strong> dengan fungsi f(x) = <strong>${param}x</strong> dan tinggi <strong>${height} meter</strong>. Volume dihitung menggunakan integral <strong>V = π ∫[0,h] (kx)² dx = (π × k² × h³) / 3</strong>. Maka volume benda ini adalah <strong>${volume.toFixed(3)} meter kubik</strong>. Volume ini mencerminkan ruang yang bisa ditampung dalam bentuk kerucut tersebut.`;
+      } else if (type === "quadratic") {
+        text = `Anda memilih bentuk <strong>parabola diputar</strong> dengan fungsi f(x) = <strong>${param}x²</strong> dan tinggi <strong>${height} meter</strong>. Volume dihitung dengan integral <strong>V = π ∫[0,h] (ax²)² dx = (π × a² × h⁵) / 5</strong>. Volume hasil rotasi fungsi ini menghasilkan <strong>${volume.toFixed(3)} meter kubik</strong>, yang menggambarkan ruang tertutup dari grafik parabola yang diputar terhadap sumbu x.`;
+      }
+
+      explanation.innerHTML = text;
+    }
+
+    function drawChart(type, param) {
+      const labels = [], data = [];
+      for (let h = 0.1; h <= 2.1; h += 0.1) {
+        let v = 0;
+        if (type === "constant") v = Math.PI * param * param * h;
+        if (type === "linear") v = Math.PI * param * param * Math.pow(h, 3) / 3;
+        if (type === "quadratic") v = Math.PI * param * param * Math.pow(h, 5) / 5;
+
+        labels.push(h.toFixed(1));
+        data.push(v.toFixed(3));
+      }
+
+      if (window.volumeChart) {
+        window.volumeChart.data.labels = labels;
+        window.volumeChart.data.datasets[0].data = data;
+        window.volumeChart.update();
+        return;
+      }
+
+      const ctx = document.getElementById("chartCanvas").getContext("2d");
+      window.volumeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Volume vs Tinggi',
+            data,
+            borderColor: '#0077cc',
+            backgroundColor: 'rgba(0, 119, 204, 0.2)',
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'Tinggi (m)' }},
+            y: { title: { display: true, text: 'Volume (m³)' }}
+          }
+        }
+      });
+    }
+
+    document.getElementById("functionType").addEventListener("change", hitungVolume);
+    document.getElementById("valueInput").addEventListener("input", hitungVolume);
+    document.getElementById("heightInput").addEventListener("input", hitungVolume);
+
+    window.onload = () => {
+      init3D();
+      hitungVolume();
+    };
+  </script>
+</body>
+</html>
